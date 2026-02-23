@@ -12,9 +12,12 @@ import time
 from collections import deque
 
 import numpy as np
+import torch
 
 from wrappers import make_env
 from dqn import DQNAgent
+from PPO import params as PPO_params
+from PPO import PPO
 
 CFG = dict(
     env_id            = "SuperMarioBros-1-1-v0",
@@ -56,6 +59,107 @@ def moving_average(values, window=100):
 
 
 #TRENING
+def train_ppo(resume_path=None):
+    os.makedirs(CFG["checkpoint_dir"], exist_ok=True)
+    os.makedirs(CFG["log_dir"], exist_ok=True)
+
+    env = make_env(
+        env_id=CFG["env_id"],
+        skip=CFG["frame_skip"],
+        shape=CFG["frame_size"],
+        stack=CFG["frame_stack"],
+        clip_rewards=CFG["clip_rewards"],
+        max_episode_steps=CFG["max_ep_steps"]
+    )
+
+    agent = PPO(env, PPO_params)
+
+    if resume_path:
+        checkpoint = torch.load(resume_path, map_location=agent.device)
+        agent.actor_critic.load_state_dict(checkpoint["actor_critic"])
+        agent.optimizer.load_state_dict(checkpoint["optimizer"])
+        total_steps_done = checkpoint.get("total_steps", 0)
+        print(f"[PPO] Resumed from step {total_steps_done}")
+    else:
+        total_steps_done = 0
+
+    # Logovanje
+    log_path = os.path.join(CFG["log_dir"], "ppo_episodes.csv")
+    file_exists = resume_path and os.path.exists(log_path)
+    csv_file = open(log_path, "a" if file_exists else "w", newline="")
+    writer = csv.writer(csv_file)
+    if not file_exists:
+        writer.writerow(["timestep", "episode", "ep_reward", "ep_max_x", "flag_get"])
+    ep_num = 0
+    total_wins = 0
+    t_start = time.time()
+
+    print(f"Training on: {agent.device}")
+    print(f"Max timesteps: {CFG['max_steps']:,}")
+
+    while total_steps_done < CFG["max_steps"]:
+
+        agent.collect_data()
+        total_steps_done += PPO_params['n_steps']
+        agent.total_steps = total_steps_done #checkpointi
+        #Loguju se epizode koje zavrse
+        for ep_reward, ep_max_x, flag in agent.finished_episodes:
+            ep_num += 1
+            if flag:
+                total_wins += 1
+            writer.writerow([total_steps_done, ep_num, f"{ep_reward:.2f}", ep_max_x, int(flag)])
+
+        last_state = torch.tensor(agent.current_state, dtype=torch.float32).unsqueeze(0).to(agent.device)
+
+        with torch.no_grad():
+            _, last_value = agent.actor_critic(last_state)
+
+        values_with_bootstrap = agent.values + [last_value.squeeze()]
+        advantages, returns = agent.compute_advantage(agent.rewards, values_with_bootstrap, agent.dones)
+        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+
+        states        = torch.stack(agent.states).to(agent.device)
+        actions       = torch.stack(agent.actions).to(agent.device)
+        old_log_probs = torch.stack(agent.log_probs).to(agent.device)
+
+        agent.update_policy(states, actions, old_log_probs, advantages, returns)
+        #Logovanje opet
+        if total_steps_done % CFG["log_freq"] == 0:
+            elapsed           = time.time() - t_start
+            fps               = total_steps_done / elapsed
+            recent_rewards    = [ep[0] for ep in agent.finished_episodes[-100:]]
+            recent_x          = [ep[1] for ep in agent.finished_episodes[-100:]]
+            avg_r             = np.mean(recent_rewards) if recent_rewards else float("nan")
+            avg_x             = np.mean(recent_x)       if recent_x      else 0
+            avg_l             = moving_average(agent.recent_losses) if agent.recent_losses else float("nan")
+
+            print(
+                f"Step             {total_steps_done:>8,} | "
+                f"Ep               {ep_num:>5}            | "
+                f"Wins:            {total_wins:>4}        | "
+                f"Avg R(100):      {avg_r:>7.2f}          | "
+                f"Avg X pos:       {avg_x:>6.0f}          | "
+                f"Loss:            {avg_l:.4f}            | "
+                f"FPS:             {fps:>5.0f}"
+            )
+
+        if total_steps_done % CFG["save_freq"] == 0:
+            ckpt_path = os.path.join(CFG["checkpoint_dir"], f"ppo_step_{total_steps_done}.pt")
+            torch.save({
+                "actor_critic": agent.actor_critic.state_dict(),
+                "optimizer":    agent.optimizer.state_dict(),
+                "total_steps":  total_steps_done,
+            }, ckpt_path)
+        csv_file.flush()
+    env.close()
+    csv_file.close()
+
+    torch.save({
+        "actor_critic": agent.actor_critic.state_dict(),
+        "optimizer":    agent.optimizer.state_dict(),
+        "total_steps":  total_steps_done,
+    }, os.path.join(CFG["checkpoint_dir"], "ppo_final.pt"))
+    print("PPO Training complete.")
 
 def train(resume_path=None):
     os.makedirs(CFG["checkpoint_dir"], exist_ok=True)
@@ -248,17 +352,71 @@ def evaluate(checkpoint_path, n_episodes=10, render=True):
 
     env.close()
 
+def evaluate_ppo(checkpoint_path, n_episodes=10, render=True):
+    env = make_env(
+        env_id       = CFG["env_id"],
+        skip         = CFG["frame_skip"],
+        shape        = CFG["frame_size"],
+        stack        = CFG["frame_stack"],
+        clip_rewards = False,
+    )
+
+    agent = PPO(env, PPO_params)
+
+    checkpoint = torch.load(checkpoint_path, map_location=agent.device)
+    agent.actor_critic.load_state_dict(checkpoint["actor_critic"])
+    agent.actor_critic.eval()
+
+    print(f"[PPO] Loaded checkpoint: {checkpoint_path}")
+
+    FPS = 30
+
+    for ep in range(1, n_episodes + 1):
+        state = env.reset()
+        done = False
+        total_reward = 0.0
+
+        while not done:
+            start = time.time()
+
+            if render:
+                env.render()
+            #No sampling, justthe greediest action
+            state_t = torch.tensor(state, dtype=torch.float32).unsqueeze(0).to(agent.device)
+            with torch.no_grad():
+                distribution, _ = agent.actor_critic(state_t)
+                action = distribution.probs.argmax(dim=1).item()
+
+            state, reward, done, info = env.step(action)
+            total_reward += reward
+
+            while time.time() - start < 1 / FPS:
+                pass
+
+        print(f"Episode {ep}: reward = {total_reward:.1f}  |  flag = {info.get('flag_get', False)}")
+
+    env.close()
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="DQN Super Mario Bros")
+    parser = argparse.ArgumentParser(description="Super Mario Bros - DQN & PPO")
+    parser.add_argument("--algo", type=str, default="dqn", choices=["dqn", "ppo"],
+                        help="Which algorithm to run (dqn or ppo)")
     parser.add_argument("--resume", type=str, default=None,
                         help="Path to checkpoint to resume training from")
     parser.add_argument("--eval", type=str, default=None,
-                        help="Path to checkpoint to evaluate (skips training)")
+                        help="Path to checkpoint to evaluate")
     parser.add_argument("--episodes", type=int, default=5,
                         help="Number of episodes for evaluation")
     args = parser.parse_args()
 
-    if args.eval:
-        evaluate(args.eval, n_episodes=args.episodes)
-    else:
-        train(resume_path=args.resume)
+    if args.algo == "dqn":
+        if args.eval:
+            evaluate(args.eval, n_episodes=args.episodes)
+        else:
+            train(resume_path=args.resume)
+    elif args.algo == "ppo":
+        if args.eval:
+            evaluate_ppo(args.eval, n_episodes=args.episodes)
+        else:
+            train_ppo(resume_path=args.resume)

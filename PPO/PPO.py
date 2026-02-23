@@ -13,38 +13,39 @@ class ActorCritic(nn.Module):
         self.cnn = nn.Sequential(
             OrderedDict(
                 [
-                    ("conv1",  nn.Conv2d(in_channels=input_channels, out_channels=32, kernel_size=8, stride=4)),
-                    ("relu1",  nn.ReLU()),
-                    ("conv2"), nn.Conv2d(in_channels=32, out_channels=64, kernel_size=4, stride=2), #(64,9,9)
-                    ("relu2"), nn.ReLU(),
-                    ("conv3"), nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1), #(64,7,7),
-                    ("relu3"), nn.ReLU(),
-                    ("flatten", nn.Flatten())
+                    ("C1",  nn.Conv2d(in_channels=input_channels, out_channels=32, kernel_size=8, stride=4)),
+                    ("ReLU1",  nn.ReLU()),
+                    ("C2"), nn.Conv2d(in_channels=32, out_channels=64, kernel_size=4, stride=2), #(64,9,9)
+                    ("ReLU2"), nn.ReLU(),
+                    ("C3"), nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1), #(64,7,7),
+                    ("ReLU3"), nn.ReLU(),
+                    ("flat", nn.Flatten())
                 ]
             )
         )
 
-        cnn_output_size = 64*7*7
+        cnn_output_size = 64*7*7 #C3 components *
 
         self.shared_visual = nn.Sequential(
             nn.Linear(cnn_output_size,512),
             nn.ReLU
         )
         
-        self.actor_head = nn.Linear(512,n_actions)
-        self.critic_head = nn.Linear(512,1)
+        self.actor = nn.Linear(512,n_actions)
+        self.critic = nn.Linear(512,1)
         pass   
 
-    def forward(self, x):
-        if x.dtype == torch.uint8:
-            x = x.float() /255.0
-        feature = self.cnn(x)
+    def forward(self, state):
+         #State is supposed to be grayscaled. That's why we do (state / 255) We are normalizing the image to a range of [0,1]
+        if state.dtype == torch.uint8:
+            state = state.float() /255.0
+        feature = self.cnn(state)
         feature = self.shared_visual(feature)
 
         #Both actor and critic observe same state
-        logits = self.actor_head(feature)
-        value = self.critic_head(feature)
-        distribution = Categorical(logits = logits)
+        logits = self.actor(feature) # Outputs an array with 7 values (moves) in range of [0,1]
+        value = self.critic(feature) # Critic calculates a value based on the current situation to keep in mind for later
+        distribution = Categorical(logits = logits) #Applies softmax onto logits
         
         return distribution, value
         
@@ -67,7 +68,7 @@ class PPO:
         self.log_probs = []
         self.rewards = []
         self.dones = []
-
+        self.episode_res = [] # list of tuples (ep_reward, ep_max_x, flag_get)
         self.current_state = env.reset()
         self.episode_reward = []
         self.current_ep_reward = 0
@@ -88,8 +89,8 @@ class PPO:
                 distribution, value = self.actor_critic(state)
 
             action = distribution.sample()
-            log_prob = distribution.log_prob(action)
-
+            log_prob = distribution.log_prob(action) #This is old state in later parts of code which will be compared to newer states later on
+            
             next_state, reward, done, info = self.env.step(action.item())
             self.current_ep_reward+=reward
 
@@ -100,10 +101,16 @@ class PPO:
             self.values.append(value.squeeze())
             self.dones.append(int(done))
 
+            current_x = info.get('x_pos', 0)
+            if current_x > self.ep_max_x:
+                self.ep_max_x = current_x
+
             if done:
-                self.episode_reward.append(self.current_ep_reward)
-                self.current_ep_reward=0
-                self.current_state = self.env.reset()
+                flag = info.get('flag_get', False)
+                self.episode_res.append((self.current_ep_reward, self.ep_max_x, flag))
+                self.current_ep_reward = 0
+                self.ep_max_x = 0
+                self.current_state = self.environment.reset()
             else:
                 self.current_state = next_state
         pass
