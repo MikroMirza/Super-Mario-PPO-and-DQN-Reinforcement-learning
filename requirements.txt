@@ -1,0 +1,7 @@
+gym==0.25.2
+nes-py
+gym-super-mario-bros
+torch
+torchvision
+opencv-python
+"numpy<2.0"
