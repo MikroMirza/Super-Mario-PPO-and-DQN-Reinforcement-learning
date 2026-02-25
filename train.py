@@ -89,13 +89,13 @@ def train_ppo(resume_path=None):
     csv_file = open(log_path, "a" if file_exists else "w", newline="")
     writer = csv.writer(csv_file)
     if not file_exists:
-        writer.writerow(["timestep", "episode", "ep_reward", "ep_max_x", "flag_get"])
+        writer.writerow(["step", "episode", "ep_reward", "ep_max_x", "flag_get"])
     ep_num = 0
     total_wins = 0
     t_start = time.time()
 
     print(f"Training on: {agent.device}")
-    print(f"Max timesteps: {CFG['max_steps']:,}")
+    print(f"Max steps: {CFG['max_steps']:,}")
 
     while total_steps_done < CFG["max_steps"]:
 

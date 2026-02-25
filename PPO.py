@@ -1,10 +1,22 @@
-from typing import OrderedDict
+from collections import OrderedDict
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 from torch.distributions import Categorical
+
+params = {
+    'learning_rate':   1e-4,
+    'gamma':           0.99,
+    'gae_lambda':      0.95,
+    'clip_epsilon':    0.1,
+    'n_epochs':        4,
+    'batch_size':      256,
+    'n_steps':         1024,
+    'entropy_coef':    0.05,
+    'value_loss_coef': 0.5,
+}
 
 class ActorCritic(nn.Module):
     def __init__(self, input_channels, n_actions):
@@ -24,31 +36,29 @@ class ActorCritic(nn.Module):
             )
         )
 
-        cnn_output_size = 64*7*7 #C3 components *
+        cnn_output_size = 64 * 7 * 7
 
         self.shared_visual = nn.Sequential(
-            nn.Linear(cnn_output_size,512),
+            nn.Linear(cnn_output_size, 512),
             nn.ReLU()
         )
-        
-        self.actor = nn.Linear(512,n_actions)
-        self.critic = nn.Linear(512,1)
-        pass   
+
+        self.actor  = nn.Linear(512, n_actions)
+        self.critic = nn.Linear(512, 1)
 
     def forward(self, state):
-         #State is supposed to be grayscaled. That's why we do (state / 255) We are normalizing the image to a range of [0,1]
+        # Normalize pixels from [0,255] to [0,1]
         if state.dtype == torch.uint8:
-            state = state.float() /255.0
+            state = state.float() / 255.0
         feature = self.cnn(state)
         feature = self.shared_visual(feature)
 
-        #Both actor and critic observe same state
-        logits = self.actor(feature) # Outputs an array with 7 values (moves) in range of [0,1]
-        value = self.critic(feature) # Critic calculates a value based on the current situation to keep in mind for later
-        distribution = Categorical(logits = logits) #Applies softmax onto logits
-        
+        logits = self.actor(feature)   # raw scores for each of the 7 actions
+        value  = self.critic(feature)  # estimated total future reward from this state
+        distribution = Categorical(logits=logits)  # Uses softmax to normalize to [0,1]
+
         return distribution, value
-        
+
 
 class PPOAgent:
     def __init__(self, env, hyperparameters):
@@ -56,139 +66,132 @@ class PPOAgent:
         self.hyperparams = hyperparameters
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        n_actions = env.action_space.n
-        input_channels = env.observation_space.shape[0] 
+        n_actions      = env.action_space.n
+        input_channels = env.observation_space.shape[0]
 
         self.actor_critic = ActorCritic(input_channels, n_actions).to(self.device)
-        self.optimizer = optim.Adam(self.actor_critic.parameters(), lr=hyperparameters['learning_rate'])
-        
-        self.states = []
-        self.actions = []
-        self.values = []
-        self.log_probs = []
-        self.rewards = []
-        self.dones = []
-        self.episode_res = [] # list of tuples (ep_reward, ep_max_x, flag_get)
-        self.current_state = env.reset()
-        self.episode_reward = []
-        self.current_ep_reward = 0
-        pass
+        self.optimizer    = optim.Adam(self.actor_critic.parameters(), lr=hyperparameters['learning_rate'])
 
-    def collect_data(self ):
+        # Every n_steps, refilled
+        self.states    = []
+        self.actions   = []
+        self.values    = []
+        self.log_probs = []
+        self.rewards   = []
+        self.dones     = []
+
+        self.finished_episodes = []  # list of (ep_reward, ep_max_x, flag_get)
+        self.current_ep_reward = 0
+        self.ep_max_x          = 0
+        self.total_steps       = 0   # Used exclusively for train.py
+        self.recent_losses = []
+
+        self.current_state = env.reset()
+
+    def collect_data(self):
+        # New 'state' new data, so we clear everything
         self.states.clear()
         self.actions.clear()
         self.values.clear()
         self.log_probs.clear()
         self.rewards.clear()
         self.dones.clear()
+        self.finished_episodes.clear()
 
         for _ in range(self.hyperparams['n_steps']):
-            state = torch.tensor(self.current_state, dtype=torch.float32).unsqueeze(0)
+            state_tensor = torch.tensor(
+                self.current_state, dtype=torch.float32
+            ).unsqueeze(0).to(self.device)
 
-            while torch.no_grad():
-                distribution, value = self.actor_critic(state)
+            with torch.no_grad():
+                distribution, value = self.actor_critic(state_tensor)
 
-            action = distribution.sample()
-            log_prob = distribution.log_prob(action) #This is old state in later parts of code which will be compared to newer states later on
-            
-            next_state, reward, done, info = self.env.step(action.item())
-            self.current_ep_reward+=reward
+            action   = distribution.sample()
+            log_prob = distribution.log_prob(action)
 
-            self.states.append(state.squeeze(0))
+            next_state, reward, done, info = self.environment.step(action.item())
+            self.current_ep_reward += reward
+            #Tracking x-es for training/logging
+            current_x = info.get('x_pos', 0)
+            if current_x > self.ep_max_x:
+                self.ep_max_x = current_x
+
+            self.states.append(state_tensor.squeeze(0))
             self.actions.append(action.squeeze(0))
             self.log_probs.append(log_prob.squeeze(0))
             self.rewards.append(reward)
             self.values.append(value.squeeze())
             self.dones.append(int(done))
 
-            current_x = info.get('x_pos', 0)
-            if current_x > self.ep_max_x:
-                self.ep_max_x = current_x
-
-            if done:
+            if done: #If done go next 'state'
                 flag = info.get('flag_get', False)
-                self.episode_res.append((self.current_ep_reward, self.ep_max_x, flag))
+                self.finished_episodes.append((self.current_ep_reward, self.ep_max_x, flag))
                 self.current_ep_reward = 0
-                self.ep_max_x = 0
-                self.current_state = self.environment.reset()
+                self.ep_max_x          = 0
+                self.current_state     = self.environment.reset()
             else:
                 self.current_state = next_state
-        pass
 
-    def compute_advantage(self, rewards, values, done):
-
-        n=len(rewards)
-        advantages = torch.zeros(n).to(self.device)
-        GAE = 0.0
-        values_tensor = torch.stack(values)
+    def compute_advantage(self, rewards, values, dones):
+        n             = len(rewards)
+        advantages    = torch.zeros(n).to(self.device)
+        gae           = 0.0
+        values_tensor = torch.stack(values)  #(n_steps+1,)
 
         for t in reversed(range(n)):
-            delta = rewards[t] + self.hyperparams['gamma'] * values_tensor[t+1].item()* (1-done[t]) - values_tensor[t].item()
-            gae = delta + self.hp['gamma'] * self.hp['gae_lambda'] * (1 - done[t]) * gae
+            delta = (rewards[t] + self.hyperparams['gamma'] * values_tensor[t + 1].item() * (1 - dones[t]) - values_tensor[t].item())
+
+            gae = delta + self.hyperparams['gamma'] * self.hyperparams['gae_lambda'] * (1 - dones[t]) * gae
             advantages[t] = gae
 
+        # This trains the critic. It's what he SHOULD predict.
         returns = advantages + values_tensor[:-1]
 
         return advantages, returns
-    
+
     def update_policy(self, states, actions, old_log_probs, advantages, returns):
         n = states.shape[0]
 
         for _ in range(self.hyperparams['n_epochs']):
             indices = torch.randperm(n)
 
-            for start in range(0,n,self.hyperparams['batch_size']):
-                end = start + self.hp['batch_size']
-                batch_idx = indices[start:end]
-                
-                batch_states = states[batch_idx]
-                batch_actions = actions[batch_idx]
+            for start in range(0, n, self.hyperparams['batch_size']):
+                batch_idx = indices[start:start + self.hyperparams['batch_size']]
+
+                batch_states     = states[batch_idx]
+                batch_actions    = actions[batch_idx]
                 batch_old_lp     = old_log_probs[batch_idx]
                 batch_advantages = advantages[batch_idx]
                 batch_returns    = returns[batch_idx]
 
                 distribution, new_values = self.actor_critic(batch_states)
                 new_log_probs = distribution.log_prob(batch_actions)
-                entropy = distribution.entropy().mean() 
+                entropy       = distribution.entropy().mean()
 
+                #This tracks how much the policy changed after collecting the data
                 probability_ratio = torch.exp(new_log_probs - batch_old_lp)
-                clipped_ratio = torch.clamp(probability_ratio, 1 - self.hp['clip_epsilon'], 1 + self.hp['clip_epsilon'])
 
-                actor_loss = -torch.min(probability_ratio * batch_advantages, clipped_ratio * batch_advantages).mean()
+                #Uptades too large get clipped so it doesn't corrupt the cnn
+                clipped_ratio = torch.clamp(
+                    probability_ratio,
+                    1 - self.hyperparams['clip_epsilon'],
+                    1 + self.hyperparams['clip_epsilon']
+                )
+                actor_loss = -torch.min(
+                    probability_ratio * batch_advantages,
+                    clipped_ratio     * batch_advantages
+                ).mean()
 
                 new_values = new_values.squeeze(-1)
                 value_loss = nn.MSELoss()(new_values, batch_returns)
-                loss = actor_loss + self.hp['value_loss_coef'] * value_loss - self.hp['entropy_coef'] * entropy
+
+                loss = (actor_loss
+                        + self.hyperparams['value_loss_coef'] * value_loss
+                        - self.hyperparams['entropy_coef']    * entropy)
 
                 self.optimizer.zero_grad()
                 loss.backward()
-
                 nn.utils.clip_grad_norm_(self.actor_critic.parameters(), max_norm=0.5)
                 self.optimizer.step()
-        pass
-    
-    def learn(self, total_timestamps):
-        learned_timestamps = 0
-        while learned_timestamps<total_timestamps:
-            self.collect_data()
-            learned_timestamps +=self.hyperparams['n_steps']
 
-            last_state = torch.tensor(self.current_state, dtype=torch.float32).unsqueeze(0).to(self.device)
-            with torch.no_grad():
-                _, last_value = self.actor_critic(last_state)
-            bootstrap_value = last_value.squeeze()
-
-            values_with_bootstrap = self.values + [bootstrap_value]
-            advantages, returns = self.compute_advantage(self.rewards, values_with_bootstrap, self.dones)
-
-            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-
-            states     = torch.stack(self.states).to(self.device)
-            actions    = torch.stack(self.actions).to(self.device)
-            old_log_probs = torch.stack(self.log_probs).to(self.device)
-
-            self.update_policy(states, actions, old_log_probs, advantages, returns)
-
-            if len(self.episode_rewards) > 0:
-                print(f"Timesteps: {learned_timestamps}/{total_timestamps}") #random log
-        pass
+                self.recent_losses.append(loss.item())
