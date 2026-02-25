@@ -1,0 +1,38 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+
+df = pd.read_csv("logs/training_episodes_dqn.csv")
+
+# Smooth reward
+df['reward_smooth'] = df['ep_reward'].rolling(window=500, min_periods=1).mean()
+
+df_plot = df.iloc[::50, :]
+
+#Prvih 5000 epizoda prikazujemo svaki put kad je Mario dosao do zastave
+early_cutoff = 5500
+late_cutoff = 9000
+early_success = df[(df['flag_get']==1) & (df['episode'] <= early_cutoff)]
+late_success = df[(df['flag_get']==1) & (df['episode'] > early_cutoff) & (df['episode'] < late_cutoff)]
+very_late_success = df[(df['flag_get']==1) & (df['episode'] > late_cutoff)]
+
+#Kasnije pokazujemo svaku 30. jer je inace pretrpan grafik
+late_success = late_success.iloc[::4]
+very_late_success = very_late_success.iloc[::60]
+
+plt.figure(figsize=(12,6))
+
+plt.plot(df_plot['episode'], df_plot['reward_smooth'], color='blue', linewidth=2, label='Reward (smoothed)')
+
+plt.scatter(early_success['episode'], early_success['reward_smooth'],
+            color='red', s=100, marker='*', label='Goal Reached (early)', zorder=5)
+plt.scatter(late_success['episode'], late_success['reward_smooth'],
+            color='red', s=100, marker='*', label='Goal Reached (sampled later)', zorder=5, alpha=0.7)
+plt.scatter(very_late_success['episode'], very_late_success['reward_smooth'],
+            color='red', s=100, marker='*', label='Goal Reached (sampled later)', zorder=5, alpha=0.7)
+
+plt.xlabel("Episode", fontsize=14)
+plt.ylabel("Reward", fontsize=14)
+plt.title("DDQN Training: Reward and Goal Achievements", fontsize=16)
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.tight_layout()
+plt.show()
