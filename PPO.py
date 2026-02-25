@@ -13,13 +13,13 @@ class ActorCritic(nn.Module):
         self.cnn = nn.Sequential(
             OrderedDict(
                 [
-                    ("C1",  nn.Conv2d(in_channels=input_channels, out_channels=32, kernel_size=8, stride=4)),
-                    ("ReLU1",  nn.ReLU()),
-                    ("C2"), nn.Conv2d(in_channels=32, out_channels=64, kernel_size=4, stride=2), #(64,9,9)
-                    ("ReLU2"), nn.ReLU(),
-                    ("C3"), nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1), #(64,7,7),
-                    ("ReLU3"), nn.ReLU(),
-                    ("flat", nn.Flatten())
+                    ("C1",    nn.Conv2d(in_channels=input_channels, out_channels=32, kernel_size=8, stride=4)),
+                    ("ReLU1", nn.ReLU()),
+                    ("C2",    nn.Conv2d(in_channels=32, out_channels=64, kernel_size=4, stride=2)),
+                    ("ReLU2", nn.ReLU()),
+                    ("C3",    nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1)),
+                    ("ReLU3", nn.ReLU()),
+                    ("flat",  nn.Flatten())
                 ]
             )
         )
@@ -28,7 +28,7 @@ class ActorCritic(nn.Module):
 
         self.shared_visual = nn.Sequential(
             nn.Linear(cnn_output_size,512),
-            nn.ReLU
+            nn.ReLU()
         )
         
         self.actor = nn.Linear(512,n_actions)
@@ -50,7 +50,7 @@ class ActorCritic(nn.Module):
         return distribution, value
         
 
-class PPO:
+class PPOAgent:
     def __init__(self, env, hyperparameters):
         self.environment = env
         self.hyperparams = hyperparameters
@@ -120,7 +120,6 @@ class PPO:
         n=len(rewards)
         advantages = torch.zeros(n).to(self.device)
         GAE = 0.0
-
         values_tensor = torch.stack(values)
 
         for t in reversed(range(n)):

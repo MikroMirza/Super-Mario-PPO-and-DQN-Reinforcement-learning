@@ -16,8 +16,8 @@ import torch
 
 from wrappers import make_env
 from dqn import DQNAgent
-from PPO import params as PPO_params
-from PPO import PPO
+from params import hyperparameters as PPOhyperparameters
+from PPO import PPOAgent
 
 CFG = dict(
     env_id            = "SuperMarioBros-1-1-v0",
@@ -72,7 +72,7 @@ def train_ppo(resume_path=None):
         max_episode_steps=CFG["max_ep_steps"]
     )
 
-    agent = PPO(env, PPO_params)
+    agent = PPOAgent(env, PPOhyperparameters)
 
     if resume_path:
         checkpoint = torch.load(resume_path, map_location=agent.device)
@@ -100,7 +100,7 @@ def train_ppo(resume_path=None):
     while total_steps_done < CFG["max_steps"]:
 
         agent.collect_data()
-        total_steps_done += PPO_params['n_steps']
+        total_steps_done += PPOhyperparameters['n_steps']
         agent.total_steps = total_steps_done #checkpointi
         #Loguju se epizode koje zavrse
         for ep_reward, ep_max_x, flag in agent.finished_episodes:
@@ -361,7 +361,7 @@ def evaluate_ppo(checkpoint_path, n_episodes=10, render=True):
         clip_rewards = False,
     )
 
-    agent = PPO(env, PPO_params)
+    agent = PPOAgent(env, PPOhyperparameters)
 
     checkpoint = torch.load(checkpoint_path, map_location=agent.device)
     agent.actor_critic.load_state_dict(checkpoint["actor_critic"])
