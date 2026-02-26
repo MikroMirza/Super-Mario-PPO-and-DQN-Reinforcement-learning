@@ -1,26 +1,15 @@
-"""
-CLI Argumenti:
-    python train.py
-    python train.py --resume checkpoint.pt
-    python train.py --eval checkpoint.pt
-"""
-
 import argparse
 import csv
 import os
 import time
-from collections import deque
 from collections import defaultdict
 
 import numpy as np
 import params
-import torch
-
 from wrappers import make_env
-from Agent import Agent
-from dqn import DQNAgent
-from params import hyperparameters as PPOhyperparameters
-from PPO import PPOAgent
+from Agents.Agent import Agent
+from Agents.dqn import DQNAgent
+from Agents.PPO import PPOAgent
 
 #POMOCNE FUNKCIJE
 def moving_average(values, window=100):

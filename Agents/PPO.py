@@ -6,7 +6,7 @@ import torch.optim as optim
 import numpy as np
 from torch.distributions import Categorical
 
-from Agent import Agent
+from Agents.Agent import Agent
 
 params = {
     'learning_rate':   1e-4,

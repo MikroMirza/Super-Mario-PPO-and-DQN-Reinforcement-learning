@@ -1,7 +1,7 @@
 import random
 import numpy as np
 from collections import deque
-from Agent import Agent
+from Agents.Agent import Agent
 
 import torch
 import torch.nn as nn
