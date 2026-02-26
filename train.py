@@ -413,5 +413,5 @@ if __name__ == "__main__":
         if args.eval:
             evaluate_ppo(args.eval, n_episodes=args.episodes)
         else:
-            agent = PPOAgent(env, params.params)
+            agent = PPOAgent(env, params.params2ndgo)
             train(agent, env, CFG)

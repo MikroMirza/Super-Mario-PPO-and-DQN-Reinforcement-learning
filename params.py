@@ -21,3 +21,15 @@ hyperparameters = {
     'entropy_coef':    0.05,     # entropy = exploration
     'value_loss_coef': 0.5,      # used for critic loss 
 }
+
+params2ndgo = {
+    'learning_rate':  2.5e-5,
+    'gamma':          0.99,
+    'gae_lambda':     0.95,
+    'clip_epsilon':   0.15,
+    'n_epochs':       3,
+    'batch_size':     256,
+    'n_steps':        2048,
+    'entropy_coef':   0.02,
+    'value_loss_coef': 0.5,
+}
