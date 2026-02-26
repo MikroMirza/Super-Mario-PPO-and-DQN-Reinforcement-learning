@@ -33,3 +33,35 @@ params2ndgo = {
     'entropy_coef':   0.02,
     'value_loss_coef': 0.5,
 }
+
+
+dqn_params = {
+    'lr': 2.5e-5,
+    'gamma': 0.99,
+    'buffer_capacity': 200_000,
+    'batch_size': 256,
+    'eps_start': 1.0,
+    'eps_end': 0.1,
+    'eps_decay_steps': 500_000,
+    'target_update_freq': 10_000,
+    'train_freq': 4,        #Na koliko koraka se azurira
+    'learning_starts': 10_000,   #Koliko koraka treba baferovati pre nego sto trening pocne
+}
+
+env_params = {
+    'env_id': "SuperMarioBros-1-1-v0",
+    'frame_skip': 4,
+    'frame_size': 84,
+    'frame_stack': 4,
+    'clip_rewards': False,
+    'max_ep_steps': 10_000
+}
+
+training_params = {
+    'max_steps': 100_000_000,
+    'log_freq': 1_000,    #Frekvencija ispisivanja statistike
+    'save_freq': 50_000,   #Frekvencija cuvanja checkpointa
+    'csv_flush_freq': 10_000,   #Koliko cesto se upisuje CSV na disk
+    'checkpoint_dir': "checkpoints",
+    'log_dir': "logs",
+}
