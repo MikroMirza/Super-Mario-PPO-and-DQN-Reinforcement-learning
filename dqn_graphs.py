@@ -1,7 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-df = pd.read_csv("logs/training_episodes_dqn.csv")
+df = pd.read_csv("logs/ppo_episodes.csv")
 
 # Smooth reward
 df['reward_smooth'] = df['ep_reward'].rolling(window=500, min_periods=1).mean()
@@ -15,7 +15,7 @@ early_success = df[(df['flag_get']==1) & (df['episode'] <= early_cutoff)]
 late_success = df[(df['flag_get']==1) & (df['episode'] > early_cutoff) & (df['episode'] < late_cutoff)]
 very_late_success = df[(df['flag_get']==1) & (df['episode'] > late_cutoff)]
 
-#Kasnije pokazujemo svaku 30. jer je inace pretrpan grafik
+#Kasnije pokazujemo manje zvezdi jer je inace pretrpan grafik
 late_success = late_success.iloc[::4]
 very_late_success = very_late_success.iloc[::60]
 

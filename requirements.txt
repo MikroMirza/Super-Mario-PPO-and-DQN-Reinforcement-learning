@@ -4,4 +4,6 @@ gym-super-mario-bros
 torch
 torchvision
 opencv-python
+pandas
+matplotlib
 "numpy<2.0"
