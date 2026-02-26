@@ -73,5 +73,5 @@ train.py argumenti:
   --episodes EPISODES  Broj epizoda za evaluaciju
 ```
 
-Some agent checkpoints we trained:
-[Click here](https://drive.google.com/drive/u/2/folders/1Hw1zY4Pt9CEwIckAVOHqVvNLozSuNFIR)
+Neki od checkpoint-a naših agenata:
+[Checkpoint](https://drive.google.com/drive/u/2/folders/1Hw1zY4Pt9CEwIckAVOHqVvNLozSuNFIR)
