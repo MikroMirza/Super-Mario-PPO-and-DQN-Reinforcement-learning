@@ -65,8 +65,13 @@ pip install -r requirements.txt
 Instalirati pytorch cuda ukoliko je potrebno.
 
 train.py argumenti:
+```
   -h, --help           Prikaži validne argumente
   --algo {dqn,ppo}     Odaberi algoritam (ddqn ili ppo)
   --resume RESUME      Putanja do čekpointa agenta od kog se treniranje nastavlja
   --eval EVAL          Putanja do čekpointa agenta koji se evaluira
   --episodes EPISODES  Broj epizoda za evaluaciju
+```
+
+Some agent checkpoints we trained:
+[Click here](https://drive.google.com/drive/u/2/folders/1Hw1zY4Pt9CEwIckAVOHqVvNLozSuNFIR)
