@@ -6,6 +6,8 @@ import torch.optim as optim
 import numpy as np
 from torch.distributions import Categorical
 
+from Agent import Agent
+
 params = {
     'learning_rate':   1e-4,
     'gamma':           0.99,
@@ -60,16 +62,15 @@ class ActorCritic(nn.Module):
         return distribution, value
 
 
-class PPOAgent:
+class PPOAgent(Agent):
     def __init__(self, env, hyperparameters):
-        self.environment = env
-        self.hyperparams = hyperparameters
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        state_shape = env.observation_space.shape  # (4, 84, 84)
+        n_actions   = env.action_space.n
 
-        n_actions      = env.action_space.n
-        input_channels = env.observation_space.shape[0]
+        super().__init__(state_shape, n_actions)
 
-        self.actor_critic = ActorCritic(input_channels, n_actions).to(self.device)
+        self.hyperparams  = hyperparameters
+        self.actor_critic = ActorCritic(state_shape[0], n_actions).to(self.device)
         self.optimizer    = optim.Adam(self.actor_critic.parameters(), lr=hyperparameters['learning_rate'])
 
         # Every n_steps, refilled
@@ -83,12 +84,66 @@ class PPOAgent:
         self.finished_episodes = []  # list of (ep_reward, ep_max_x, flag_get)
         self.current_ep_reward = 0
         self.ep_max_x          = 0
-        self.total_steps       = 0   # Used exclusively for train.py
-        self.recent_losses = []
+        self.recent_losses     = []
 
-        self.current_state = env.reset()
+        # Store last state/action/value between select_action() and step() calls
+        self._last_state_tensor = None
+        self._last_action       = None
+        self._last_log_prob     = None
+        self._last_value        = None
 
-    def collect_data(self):
+    def select_action(self, state: np.ndarray) -> int:
+        state_tensor = torch.tensor(
+            state, dtype=torch.float32
+        ).unsqueeze(0).to(self.device)
+
+        with torch.no_grad():
+            distribution, value = self.actor_critic(state_tensor)
+
+        action   = distribution.sample()
+        log_prob = distribution.log_prob(action)
+
+        # Cache these so step() can store them in buffers
+        self._last_state_tensor = state_tensor.squeeze(0)
+        self._last_action       = action.squeeze(0)
+        self._last_log_prob     = log_prob.squeeze(0)
+        self._last_value        = value.squeeze()
+
+        return action.item()
+
+    def step(self, state, action, reward, next_state, done) -> dict | None:
+        # Tracking x-es for training/logging
+        self.current_ep_reward += reward
+
+        self.states.append(self._last_state_tensor)
+        self.actions.append(self._last_action)
+        self.log_probs.append(self._last_log_prob)
+        self.rewards.append(reward)
+        self.values.append(self._last_value)
+        self.dones.append(int(done))
+
+        # Only update when we have a full batch of n_steps
+        if len(self.states) < self.hyperparams['n_steps']:
+            return None
+
+        # Bootstrap value of whatever state we're currently in
+        next_state_tensor = torch.tensor(
+            next_state, dtype=torch.float32
+        ).unsqueeze(0).to(self.device)
+
+        with torch.no_grad():
+            _, last_value = self.actor_critic(next_state_tensor)
+
+        values_with_bootstrap = self.values + [last_value.squeeze()]
+        advantages, returns   = self.compute_advantage(self.rewards, values_with_bootstrap, self.dones)
+        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+
+        states        = torch.stack(self.states).to(self.device)
+        actions       = torch.stack(self.actions).to(self.device)
+        old_log_probs = torch.stack(self.log_probs).to(self.device)
+
+        self.update_policy(states, actions, old_log_probs, advantages, returns)
+
         # New 'state' new data, so we clear everything
         self.states.clear()
         self.actions.clear()
@@ -96,41 +151,16 @@ class PPOAgent:
         self.log_probs.clear()
         self.rewards.clear()
         self.dones.clear()
-        self.finished_episodes.clear()
 
-        for _ in range(self.hyperparams['n_steps']):
-            state_tensor = torch.tensor(
-                self.current_state, dtype=torch.float32
-            ).unsqueeze(0).to(self.device)
+        avg_loss = np.mean(self.recent_losses[-16:]) if self.recent_losses else float("nan")
+        return {"ppo_loss": avg_loss}
 
-            with torch.no_grad():
-                distribution, value = self.actor_critic(state_tensor)
+    def on_episode_end(self) -> None:
+        self.current_ep_reward = 0
+        self.ep_max_x          = 0
 
-            action   = distribution.sample()
-            log_prob = distribution.log_prob(action)
-
-            next_state, reward, done, info = self.environment.step(action.item())
-            self.current_ep_reward += reward
-            #Tracking x-es for training/logging
-            current_x = info.get('x_pos', 0)
-            if current_x > self.ep_max_x:
-                self.ep_max_x = current_x
-
-            self.states.append(state_tensor.squeeze(0))
-            self.actions.append(action.squeeze(0))
-            self.log_probs.append(log_prob.squeeze(0))
-            self.rewards.append(reward)
-            self.values.append(value.squeeze())
-            self.dones.append(int(done))
-
-            if done: #If done go next 'state'
-                flag = info.get('flag_get', False)
-                self.finished_episodes.append((self.current_ep_reward, self.ep_max_x, flag))
-                self.current_ep_reward = 0
-                self.ep_max_x          = 0
-                self.current_state     = self.environment.reset()
-            else:
-                self.current_state = next_state
+    def extra_metrics(self) -> dict:
+        return {"loss": self.recent_losses[-1] if self.recent_losses else float("nan")}
 
     def compute_advantage(self, rewards, values, dones):
         n             = len(rewards)
@@ -171,7 +201,7 @@ class PPOAgent:
                 #This tracks how much the policy changed after collecting the data
                 probability_ratio = torch.exp(new_log_probs - batch_old_lp)
 
-                #Uptades too large get clipped so it doesn't corrupt the cnn
+                #Updates too large get clipped so it doesn't corrupt the cnn
                 clipped_ratio = torch.clamp(
                     probability_ratio,
                     1 - self.hyperparams['clip_epsilon'],
@@ -195,3 +225,16 @@ class PPOAgent:
                 self.optimizer.step()
 
                 self.recent_losses.append(loss.item())
+
+    def save(self, path: str) -> None:
+        torch.save({
+            "actor_critic": self.actor_critic.state_dict(),
+            "optimizer":    self.optimizer.state_dict(),
+            "total_steps":  self.total_steps,
+        }, path)
+
+    def load(self, path: str) -> None:
+        checkpoint = torch.load(path, map_location=self.device, weights_only=False)
+        self.actor_critic.load_state_dict(checkpoint["actor_critic"])
+        self.optimizer.load_state_dict(checkpoint["optimizer"])
+        self.total_steps = checkpoint.get("total_steps", 0)

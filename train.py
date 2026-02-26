@@ -13,6 +13,7 @@ from collections import deque
 from collections import defaultdict
 
 import numpy as np
+import params
 import torch
 
 from wrappers import make_env
@@ -98,9 +99,6 @@ def train_ppo(resume_path=None):
     total_wins = 0
     t_start = time.time()
 
-    print(f"Training on: {agent.device}")
-    print(f"Max steps: {CFG['max_steps']:,}")
-
     while total_steps_done < CFG["max_steps"]:
 
         agent.collect_data()
@@ -128,24 +126,24 @@ def train_ppo(resume_path=None):
 
         agent.update_policy(states, actions, old_log_probs, advantages, returns)
         #Logovanje opet
-        if total_steps_done % CFG["log_freq"] == 0:
-            elapsed           = time.time() - t_start
-            fps               = total_steps_done / elapsed
-            recent_rewards    = [ep[0] for ep in agent.finished_episodes[-100:]]
-            recent_x          = [ep[1] for ep in agent.finished_episodes[-100:]]
-            avg_r             = np.mean(recent_rewards) if recent_rewards else float("nan")
-            avg_x             = np.mean(recent_x)       if recent_x      else 0
-            avg_l             = moving_average(agent.recent_losses) if agent.recent_losses else float("nan")
+        # if total_steps_done % CFG["log_freq"] == 0:
+        #     elapsed           = time.time() - t_start
+        #     fps               = total_steps_done / elapsed
+        #     recent_rewards    = [ep[0] for ep in agent.finished_episodes[-100:]]
+        #     recent_x          = [ep[1] for ep in agent.finished_episodes[-100:]]
+        #     avg_r             = np.mean(recent_rewards) if recent_rewards else float("nan")
+        #     avg_x             = np.mean(recent_x)       if recent_x      else 0
+        #     avg_l             = moving_average(agent.recent_losses) if agent.recent_losses else float("nan")
 
-            print(
-                f"Step             {total_steps_done:>8,} | "
-                f"Ep               {ep_num:>5}            | "
-                f"Wins:            {total_wins:>4}        | "
-                f"Avg R(100):      {avg_r:>7.2f}          | "
-                f"Avg X pos:       {avg_x:>6.0f}          | "
-                f"Loss:            {avg_l:.4f}            | "
-                f"FPS:             {fps:>5.0f}"
-            )
+        #     print(
+        #         f"Step             {total_steps_done:>8,} | "
+        #         f"Ep               {ep_num:>5}            | "
+        #         f"Wins:            {total_wins:>4}        | "
+        #         f"Avg R(100):      {avg_r:>7.2f}          | "
+        #         f"Avg X pos:       {avg_x:>6.0f}          | "
+        #         f"Loss:            {avg_l:.4f}            | "
+        #         f"FPS:             {fps:>5.0f}"
+        #     )
 
         if total_steps_done % CFG["ppo_save_freq"] == 0:
             ckpt_path = os.path.join(CFG["checkpoint_dir"], f"ppo_step_{total_steps_done}.pt")
@@ -395,24 +393,25 @@ if __name__ == "__main__":
         if args.eval:
             evaluate(args.eval, n_episodes=args.episodes)
         else:
-            state_shape = env.observation_space.shape #(4, 84, 84)
-            n_actions   = env.action_space.n #7 jer env koristi SIMPLE_MOVEMENT
-
+            state_shape = env.observation_space.shape
+            n_actions   = env.action_space.n
             agent = DQNAgent(
-                state_shape = state_shape,
-                n_actions = n_actions,
-                lr = CFG["lr"],
-                gamma = CFG["gamma"],
-                buffer_capacity = CFG["buffer_capacity"],
-                batch_size = CFG["batch_size"],
-                eps_start = CFG["eps_start"],
-                eps_end = CFG["eps_end"],
-                eps_decay_steps = CFG["eps_decay_steps"],
+                state_shape        = state_shape,
+                n_actions          = n_actions,
+                lr                 = CFG["lr"],
+                gamma              = CFG["gamma"],
+                buffer_capacity    = CFG["buffer_capacity"],
+                batch_size         = CFG["batch_size"],
+                eps_start          = CFG["eps_start"],
+                eps_end            = CFG["eps_end"],
+                eps_decay_steps    = CFG["eps_decay_steps"],
                 target_update_freq = CFG["target_update_freq"],
             )
             train(agent, env, CFG)
+
     elif args.algo == "ppo":
         if args.eval:
             evaluate_ppo(args.eval, n_episodes=args.episodes)
         else:
-            train_ppo(resume_path=args.resume)
+            agent = PPOAgent(env, params.params)
+            train(agent, env, CFG)
