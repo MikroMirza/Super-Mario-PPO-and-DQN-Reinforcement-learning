@@ -51,10 +51,10 @@ Glavni kriterijumi preko kojih ćemo porediti DQN i PPO su:
 Oba deep learning agenta trenirala su 30000-35000 epizoda na prvom nivou igrice.
 
 ### **DDQN Poster**
-[DDQN Poster](Posters/dqn_poster.png)
+![DDQN Poster](Posters/dqn_poster.png)
 
 ### **PPO Poster**
-[PPO Poster](Posters/ppo_poster.png)
+![PPO Poster](Posters/ppo_poster.png)
 
 ### **Uputstvo za korišćenje**
 Koristiti python 3.10
@@ -63,3 +63,10 @@ Instalirati potrebne pakete pomoću:
 pip install -r requirements.txt
 ```
 Instalirati pytorch cuda ukoliko je potrebno.
+
+train.py argumenti:
+  -h, --help           Prikaži validne argumente
+  --algo {dqn,ppo}     Odaberi algoritam (ddqn ili ppo)
+  --resume RESUME      Putanja do čekpointa agenta od kog se treniranje nastavlja
+  --eval EVAL          Putanja do čekpointa agenta koji se evaluira
+  --episodes EPISODES  Broj epizoda za evaluaciju
