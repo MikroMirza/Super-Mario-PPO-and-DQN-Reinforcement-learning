@@ -1,9 +1,9 @@
 gym==0.25.2
 nes-py
-gym-super-mario-bros
 torch
 torchvision
 opencv-python
 pandas
 matplotlib
 "numpy<2.0"
+vizdoom

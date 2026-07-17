@@ -8,7 +8,6 @@ import numpy as np
 import params
 from wrappers import make_env
 from Agents.Agent import Agent
-from Agents.dqn import DQNAgent
 from Agents.PPO import PPOAgent
 
 #POMOCNE FUNKCIJE
@@ -167,9 +166,7 @@ def evaluate(agent: Agent, env, checkpoint_path, n_episodes=10, render=True):
     env.close()
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Super Mario Bros - DQN & PPO")
-    parser.add_argument("--algo", type=str, default="dqn", choices=["dqn", "ppo"],
-                        help="Which algorithm to run (dqn or ppo)")
+    parser = argparse.ArgumentParser(description="Doom PPO Agent")
     parser.add_argument("--resume", type=str, default=None,
                         help="Path to checkpoint to resume training from")
     parser.add_argument("--eval", type=str, default=None,
@@ -191,22 +188,9 @@ if __name__ == "__main__":
     
     agent = None
     if args.algo == "dqn":
-        agent = DQNAgent(
-                state_shape = state_shape,
-                n_actions = n_actions,
-                lr = params.dqn_params["lr"],
-                gamma = params.dqn_params["gamma"],
-                buffer_capacity = params.dqn_params["buffer_capacity"],
-                batch_size = params.dqn_params["batch_size"],
-                eps_start = params.dqn_params["eps_start"],
-                eps_end = params.dqn_params["eps_end"],
-                eps_decay_steps = params.dqn_params["eps_decay_steps"],
-                target_update_freq = params.dqn_params["target_update_freq"],
-                train_freq = params.dqn_params["train_freq"],
-                learning_starts = params.dqn_params["learning_starts"]
-            )
+        pass
     else:
-        agent = PPOAgent(env, params.params2ndgo)
+        agent = PPOAgent(env, params.hyperparameters)
 
     if args.eval:
         evaluate(agent, env, args.eval, n_episodes=args.episodes)
