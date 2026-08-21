@@ -28,7 +28,7 @@ def train(agent: Agent, env, cfg: dict, resume_path: str = None):
     print(f"Max steps   : {cfg['max_steps']:,}")
     print("─" * 50)
 
-    ep_log_path  = os.path.join(cfg["log_dir"], f"training_episodes_{type(agent).__name__}.csv")
+    ep_log_path  = os.path.join(cfg["log_dir"], f"training_episodes_{type(agent).__name__}RUNNING_2.csv")
     ep_file_exists = resume_path and os.path.exists(ep_log_path)
     ep_csv_file  = open(ep_log_path, "a" if ep_file_exists else "w", newline="")
     ep_writer    = csv.writer(ep_csv_file)
@@ -36,20 +36,22 @@ def train(agent: Agent, env, cfg: dict, resume_path: str = None):
     if not ep_file_exists:
         ep_writer.writerow([
             "step", "episode", "ep_reward", "ep_length",
-            "ep_max_x", "flag_get",
+            "ep_kills", "ep_max_x", "died",
         ])
 
     episode_rewards = []
     episode_lengths = []
-    episode_x_positions = []
+    episode_kills = []
+    episode_max_x = []
     metric_history = defaultdict(list)
 
     state = env.reset()
     ep_reward = 0
     ep_length = 0
     ep_num = 0
+    ep_kills = 0
     ep_max_x = 0
-    total_wins = 0
+    total_deaths = 0
     t_start = time.time()
     loaded_step = agent.total_steps
 
@@ -66,29 +68,30 @@ def train(agent: Agent, env, cfg: dict, resume_path: str = None):
         ep_reward += reward
         ep_length += 1
 
-        current_x = info.get("x_pos", 0)
-        if current_x > ep_max_x:
-            ep_max_x = current_x
+        ep_kills = info.get("kills", ep_kills)
+        ep_max_x = max(ep_max_x, info.get("x_pos", 0))
 
         if done:
-            flag = info.get("flag_get", False)
-            if flag:
-                total_wins += 1
+            died = info.get("died", False)
+            if died:
+                total_deaths += 1
 
             episode_rewards.append(ep_reward)
             episode_lengths.append(ep_length)
-            episode_x_positions.append(ep_max_x)
+            episode_kills.append(ep_kills)
+            episode_max_x.append(ep_max_x)
             ep_num += 1
 
             ep_writer.writerow([
                 step, ep_num, f"{ep_reward:.2f}", ep_length,
-                ep_max_x, int(flag),
+                ep_kills, f"{ep_max_x:.1f}", int(died),
             ])
 
             agent.on_episode_end()
 
             ep_reward = 0
             ep_length = 0
+            ep_kills  = 0
             ep_max_x  = 0
             state = env.reset()
 
@@ -96,7 +99,8 @@ def train(agent: Agent, env, cfg: dict, resume_path: str = None):
             elapsed = time.time() - t_start
             fps = step / elapsed
             avg_r = moving_average(episode_rewards)
-            avg_x = moving_average(episode_x_positions) if episode_x_positions else 0
+            avg_kills = moving_average(episode_kills) if episode_kills else 0
+            avg_x = moving_average(episode_max_x) if episode_max_x else 0
 
             train_parts = " | ".join(
                 f"{k}: {moving_average(v):.4f}"
@@ -109,9 +113,10 @@ def train(agent: Agent, env, cfg: dict, resume_path: str = None):
             parts = [
                 f"Step {step:>8,}",
                 f"Ep {ep_num:>5}",
-                f"Wins: {total_wins:>4}",
+                f"Deaths: {total_deaths:>4}",
                 f"Avg R(100): {avg_r:>7.2f}",
-                f"Avg X pos: {avg_x:>6.0f}",
+                f"Avg Kills: {avg_kills:>6.2f}",
+                f"Avg X: {avg_x:>7.1f}",
             ]
             if train_parts:
                 parts.append(train_parts)
@@ -161,7 +166,7 @@ def evaluate(agent: Agent, env, checkpoint_path, n_episodes=10, render=True):
         
         agent.on_episode_end()
 
-        print(f"Episode {ep}: reward = {total_reward:.1f}  |  flag = {info.get('flag_get', False)}")
+        print(f"Episode {ep}: reward = {total_reward:.1f}  |  kills = {info.get('kills', 0)}  |  died = {info.get('died', False)}")
 
     env.close()
 
@@ -173,15 +178,29 @@ if __name__ == "__main__":
                         help="Path to checkpoint to evaluate")
     parser.add_argument("--episodes", type=int, default=5,
                         help="Number of episodes for evaluation")
+    parser.add_argument("--algo", type=str, default="ppo", choices=["dqn", "ppo"],
+                        help="Algoritam za treniranje/evaluaciju (dqn ili ppo)")
+    parser.add_argument("--scenario", type=str, default="defend", choices=["defend", "corridor"],
+                        help="defend = defend_the_center (kills) | corridor = deadly_corridor (presi hodnik)")
     args = parser.parse_args()
 
+    env_cfg = params.env_params_corridor if args.scenario == "corridor" else params.env_params
+
     env = make_env(
-        env_id = params.env_params["env_id"],
-        skip = params.env_params["frame_skip"],
-        shape = params.env_params["frame_size"],
-        stack = params.env_params["frame_stack"],
-        clip_rewards = params.env_params["clip_rewards"],
-        max_episode_steps = params.env_params["max_ep_steps"]
+        env_id = env_cfg["env_id"],
+        skip = env_cfg["frame_skip"],
+        shape = env_cfg["frame_size"],
+        stack = env_cfg["frame_stack"],
+        clip_rewards = env_cfg["clip_rewards"],
+        max_episode_steps = env_cfg["max_ep_steps"],
+        window_visible = env_cfg["window_visible"],
+        reward_mode = env_cfg["reward_mode"],
+        kill_reward = env_cfg["kill_reward"],
+        distance_scale = env_cfg["distance_scale"],
+        health_scale = env_cfg["health_scale"],
+        aim_reward = env_cfg["aim_reward"],
+        aim_penalty = env_cfg["aim_penalty"],
+        # longevity_reward= env_cfg["longevity_reward"] Uncomment when doing defend, comment when doing corridor
     )
     state_shape = env.observation_space.shape
     n_actions   = env.action_space.n
@@ -190,9 +209,9 @@ if __name__ == "__main__":
     if args.algo == "dqn":
         pass
     else:
-        agent = PPOAgent(env, params.hyperparameters)
+        agent = PPOAgent(env, params.hyperparameters_corridor)
 
     if args.eval:
         evaluate(agent, env, args.eval, n_episodes=args.episodes)
     else:
-        train(agent, env, params.training_params, args.eval)
+        train(agent, env, params.training_params, args.resume)

@@ -118,19 +118,23 @@ class ScaleRewardWrapper(gym.RewardWrapper):
     def reward(self, reward):
         return reward / self.scale
 
-def make_env(env_id="SuperMarioBros-v0", skip=4, shape=84, stack=4, clip_rewards=True, max_episode_steps=500):
+def make_env(env_id="assets/defend_the_center.cfg", skip=4, shape=84, stack=4, clip_rewards=True,
+             max_episode_steps=500, window_visible=False, reward_mode="kills",
+             kill_reward=1.0, distance_scale=0.03, health_scale=0.05,
+             aim_reward=0.5, aim_penalty=0.1, longevity_reward=0.01):
     try:
-        import gym_super_mario_bros
-        from nes_py.wrappers import JoypadSpace
-        from gym_super_mario_bros.actions import SIMPLE_MOVEMENT
+        from Environments.vizdoom_env import VizDoomEnv
     except ImportError:
         raise ImportError(
             "Install dependencies:\n"
-            "  pip install gym-super-mario-bros nes-py opencv-python"
+            "  pip install vizdoom opencv-python"
         )
 
-    env = gym_super_mario_bros.make(env_id)
-    env = JoypadSpace(env, SIMPLE_MOVEMENT)
+    env = VizDoomEnv(
+        config_path=env_id, window_visible=window_visible, reward_mode=reward_mode,
+        kill_reward=kill_reward, distance_scale=distance_scale, health_scale=health_scale,
+        aim_reward=aim_reward, aim_penalty=aim_penalty, longevity_reward=longevity_reward,
+    )
     env = SkipFrame(env, skip=skip)
     if max_episode_steps:
         env = gym.wrappers.TimeLimit(env, max_episode_steps=max_episode_steps)

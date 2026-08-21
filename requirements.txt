@@ -1,9 +1,8 @@
 gym==0.25.2
-nes-py
 torch
 torchvision
 opencv-python
 pandas
 matplotlib
-"numpy<2.0"
+numpy<2.0
 vizdoom

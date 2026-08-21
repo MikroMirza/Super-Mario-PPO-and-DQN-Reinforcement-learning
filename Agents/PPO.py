@@ -8,17 +8,6 @@ from torch.distributions import Categorical
 
 from Agents.Agent import Agent
 
-params = {
-    'learning_rate':   1e-4,
-    'gamma':           0.99,
-    'gae_lambda':      0.95,
-    'clip_epsilon':    0.1,
-    'n_epochs':        4,
-    'batch_size':      256,
-    'n_steps':         1024,
-    'entropy_coef':    0.05,
-    'value_loss_coef': 0.5,
-}
 
 class ActorCritic(nn.Module):
     def __init__(self, input_channels, n_actions):
@@ -85,6 +74,7 @@ class PPOAgent(Agent):
         self.current_ep_reward = 0
         self.ep_max_x          = 0
         self.recent_losses     = []
+        self.recent_entropies  = []
 
         # Store last state/action/value between select_action() and step() calls
         self._last_state_tensor = None
@@ -160,7 +150,10 @@ class PPOAgent(Agent):
         self.ep_max_x          = 0
 
     def extra_metrics(self) -> dict:
-        return {"loss": self.recent_losses[-1] if self.recent_losses else float("nan")}
+        return {
+            "loss": self.recent_losses[-1] if self.recent_losses else float("nan"),
+            "entropy": np.mean(self.recent_entropies[-16:]) if self.recent_entropies else float("nan"),
+        }
 
     def compute_advantage(self, rewards, values, dones):
         n             = len(rewards)
@@ -225,6 +218,7 @@ class PPOAgent(Agent):
                 self.optimizer.step()
 
                 self.recent_losses.append(loss.item())
+                self.recent_entropies.append(entropy.item())
 
     def save(self, path: str) -> None:
         torch.save({
