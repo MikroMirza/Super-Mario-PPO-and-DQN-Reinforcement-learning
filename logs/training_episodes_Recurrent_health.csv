@@ -1,0 +1,3 @@
+step,episode,ep_reward,ep_length,ep_kills,ep_max_x,died
+144,1,31.99,144,0,0.0,1
+240,2,19.06,96,0,0.0,1
