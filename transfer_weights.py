@@ -37,6 +37,12 @@ def transfer(source_path, target_scenario, out_path):
         distance_scale=cfg["distance_scale"], health_scale=cfg["health_scale"],
         aim_reward=cfg["aim_reward"], aim_penalty=cfg["aim_penalty"],
         longevity_reward=cfg["longevity_reward"],
+        distance_discount=cfg.get("distance_discount", 1.0),
+        gate_advance_on_enemy=cfg.get("gate_advance_on_enemy", False),
+        gated_discount=cfg.get("gated_discount", 0.05),
+        allowed_button_indices=cfg.get("allowed_button_indices"),
+        extra_combos=cfg.get("extra_combos"),
+        # gate_distance=cfg.get("gate_distance",250.0)
     )
 
     target_agent = PPOAgent(env, hp) 

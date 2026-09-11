@@ -1,0 +1,39 @@
+S C:\Users\MikroMirza\Desktop\Mario\Super-Mario-PPO-and-DQN-Reinforcement-learning> py train.py --scenario corridor --resume checkpoints\corridor_init_from_defend_v2.pt
+Gym has been unmaintained since 2022 and does not support NumPy 2.0 amongst other critical functionality.
+Please upgrade to Gymnasium, the maintained drop-in replacement of Gym, or contact the authors of your software and request that they upgrade.
+See the migration guide at https://gymnasium.farama.org/introduction/migration_guide/ for additional information.
+
+OS: Windows NT (NT 10.0) Build 19045
+    
+D_DoomInit: Static RNGseed 840610446 set.
+M_LoadDefaults: Load system defaults.
+Gameinfo scan took 0 ms
+W_Init: Init WADfiles.
+ adding C:/Users/MikroMirza/AppData/Roaming/Python/Python313/site-packages/vizdoom/vizdoom.pk3, 583 lumps
+ adding C:/Users/MikroMirza/AppData/Roaming/Python/Python313/site-packages/vizdoom/freedoom2.wad, 3610 lumps
+ adding assets/deadly_corridor.wad, 7 lumps
+viz_controlled is write protected.
+viz_instance_id is write protected.
+C:\Users\MikroMirza\AppData\Roaming\Python\Python313\site-packages\gym\core.py:317: DeprecationWarning: WARN: Initializing wrapper in old step API which returns one bool instead of two. It is recommended to set `new_step_api=True` to use new step API. This will be the default behaviour in future.
+  deprecation(
+Agent type  : PPOAgent
+Training on : cpu
+Max steps   : 100,000,000
+──────────────────────────────────────────────────
+Step    1,000 | Ep    20 | Deaths:   20 | Avg R(100):   -7.54 | Avg Kills:   0.55 | Avg X:    34.9 | loss: nan | entropy: nan | FPS:    16
+Step    2,000 | Ep    26 | Deaths:   25 | Avg R(100):   -7.27 | Avg Kills:   0.62 | Avg X:    41.5 | ppo_loss: 1.8325 | loss: 1.415 | entropy: 1.516 | FPS:    15
+Step    3,000 | Ep    38 | Deaths:   36 | Avg R(100):   -7.10 | Avg Kills:   0.74 | Avg X:    44.8 | ppo_loss: 1.2395 | loss: 0.399 | entropy: 1.445 | FPS:    14
+Step    4,000 | Ep    51 | Deaths:   49 | Avg R(100):   -7.11 | Avg Kills:   0.75 | Avg X:    42.3 | ppo_loss: 1.0485 | loss: 0.589 | entropy: 1.462 | FPS:    14
+Step    5,000 | Ep    58 | Deaths:   55 | Avg R(100):   -6.91 | Avg Kills:   0.79 | Avg X:    50.3 | ppo_loss: 0.9188 | loss: 0.395 | entropy: 1.426 | FPS:    14
+Step    6,000 | Ep    65 | Deaths:   61 | Avg R(100):   -6.70 | Avg Kills:   0.85 | Avg X:    60.3 | ppo_loss: 0.8003 | loss: 0.323 | entropy: 1.444 | FPS:    14
+Step    7,000 | Ep    68 | Deaths:   62 | Avg R(100):   -6.55 | Avg Kills:   0.88 | Avg X:    64.4 | ppo_loss: 0.7128 | loss: 0.283 | entropy: 1.450 | FPS:    14
+Step    8,000 | Ep    80 | Deaths:   74 | Avg R(100):   -6.71 | Avg Kills:   0.81 | Avg X:    58.2 | ppo_loss: 0.6412 | loss: 0.081 | entropy: 1.458 | FPS:    14
+Step    9,000 | Ep    85 | Deaths:   78 | Avg R(100):   -6.64 | Avg Kills:   0.84 | Avg X:    62.2 | ppo_loss: 0.5975 | loss: 0.347 | entropy: 1.442 | FPS:    14
+Step   10,000 | Ep    89 | Deaths:   80 | Avg R(100):   -6.42 | Avg Kills:   0.88 | Avg X:    71.1 | ppo_loss: 0.5589 | loss: 0.229 | entropy: 1.467 | FPS:    14
+Step   11,000 | Ep    98 | Deaths:   88 | Avg R(100):   -6.45 | Avg Kills:   0.86 | Avg X:    69.4 | ppo_loss: 0.5278 | loss: 0.263 | entropy: 1.457 | FPS:    14
+Step   12,000 | Ep   110 | Deaths:  100 | Avg R(100):   -6.43 | Avg Kills:   0.86 | Avg X:    70.3 | ppo_loss: 0.5059 | loss: 0.105 | entropy: 1.432 | FPS:    14
+Step   13,000 | Ep   117 | Deaths:  106 | Avg R(100):   -6.31 | Avg Kills:   0.86 | Avg X:    74.8 | ppo_loss: 0.4970 | loss: 0.287 | entropy: 1.445 | FPS:    14
+Step   14,000 | Ep   128 | Deaths:  116 | Avg R(100):   -6.29 | Avg Kills:   0.87 | Avg X:    75.8 | ppo_loss: 0.4878 | loss: 0.346 | entropy: 1.472 | FPS:    14
+Step   15,000 | Ep   138 | Deaths:  125 | Avg R(100):   -6.24 | Avg Kills:   0.86 | Avg X:    74.7 | ppo_loss: 0.4809 | loss: 0.341 | entropy: 1.457 | FPS:    14
+Step   16,000 | Ep   149 | Deaths:  136 | Avg R(100):   -6.22 | Avg Kills:   0.87 | Avg X:    76.5 | ppo_loss: 0.4639 | loss: 0.282 | entropy: 1.475 | FPS:    14
+Step   17,000 | Ep   163 | Deaths:  149 | Avg R(100):   -6.40 | Avg Kills:   0.81 | Avg X:    66.9 | ppo_loss: 0.4476 | loss: 0.270 | entropy: 1.474 | FPS:    14

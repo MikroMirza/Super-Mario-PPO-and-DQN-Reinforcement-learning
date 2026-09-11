@@ -8,58 +8,70 @@ from torch.distributions import Categorical
 
 from Agents.Agent import Agent
 
-
 class ActorCritic(nn.Module):
-    def __init__(self, input_channels, n_actions):
-        super(ActorCritic, self).__init__()
+
+    def __init__(
+        self,
+        input_channels,
+        n_actions,
+        input_height,
+        input_width
+    ):
+        super().__init__()
 
         self.cnn = nn.Sequential(
-            OrderedDict(
-                [
-                    ("C1",    nn.Conv2d(in_channels=input_channels, out_channels=32, kernel_size=8, stride=4)),
-                    ("ReLU1", nn.ReLU()),
-                    ("C2",    nn.Conv2d(in_channels=32, out_channels=64, kernel_size=4, stride=2)),
-                    ("ReLU2", nn.ReLU()),
-                    ("C3",    nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1)),
-                    ("ReLU3", nn.ReLU()),
-                    ("flat",  nn.Flatten())
-                ]
-            )
-        )
+            OrderedDict([
+            ("C1",nn.Conv2d(input_channels,32,kernel_size=8,stride=4)),
+            ("ReLU1", nn.ReLU()),
+            ("C2",nn.Conv2d(32,64,kernel_size=4,stride=2)),
+            ("ReLU2", nn.ReLU()),
+            ("C3",nn.Conv2d(64,64,kernel_size=3,stride=1)),
+            ("ReLU3", nn.ReLU()),
+            ("flat", nn.Flatten())]))
 
-        cnn_output_size = 64 * 7 * 7
+        with torch.no_grad():
+            dummy = torch.zeros(
+                1,
+                input_channels,
+                input_height,
+                input_width
+            )
+
+            cnn_output_size = self.cnn(dummy).shape[1]
 
         self.shared_visual = nn.Sequential(
             nn.Linear(cnn_output_size, 512),
             nn.ReLU()
         )
 
-        self.actor  = nn.Linear(512, n_actions)
+        self.actor = nn.Linear(512, n_actions)
         self.critic = nn.Linear(512, 1)
 
     def forward(self, state):
-        # Normalize pixels from [0,255] to [0,1]
+
         if state.dtype == torch.uint8:
             state = state.float() / 255.0
+
         feature = self.cnn(state)
         feature = self.shared_visual(feature)
 
-        logits = self.actor(feature)   # raw scores for each of the 7 actions
-        value  = self.critic(feature)  # estimated total future reward from this state
-        distribution = Categorical(logits=logits)  # Uses softmax to normalize to [0,1]
+        logits = self.actor(feature)
+        value = self.critic(feature)
+
+        distribution = Categorical(logits=logits)
 
         return distribution, value
 
 
 class PPOAgent(Agent):
     def __init__(self, env, hyperparameters):
-        state_shape = env.observation_space.shape  # (4, 84, 84)
+        state_shape = env.observation_space.shape
         n_actions   = env.action_space.n
 
         super().__init__(state_shape, n_actions)
 
         self.hyperparams  = hyperparameters
-        self.actor_critic = ActorCritic(state_shape[0], n_actions).to(self.device)
+        self.actor_critic = ActorCritic(input_channels=state_shape[0],n_actions=n_actions,input_height=state_shape[1],input_width=state_shape[2]).to(self.device)
         self.optimizer    = optim.Adam(self.actor_critic.parameters(), lr=hyperparameters['learning_rate'])
 
         # Every n_steps, refilled

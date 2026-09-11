@@ -1,3 +1,4 @@
+from doom_gym_wrappers import DoomMaxAndSkipEnv, DoomNormalizeObservation, DoomNormalizeReward, DoomObservation, DoomRandomStart
 import numpy as np
 import gym
 from gym import spaces
@@ -47,16 +48,27 @@ class GrayScaleObservation(gym.ObservationWrapper):
 
 class ResizeObservation(gym.ObservationWrapper):
 
-    def __init__(self, env, shape=84):
+    def __init__(self, env, shape=(60, 80)):
         super().__init__(env)
-        self.shape = (shape, shape)
+
+        self.shape = tuple(shape)
+
         self.observation_space = spaces.Box(
-            low=0, high=255, shape=self.shape, dtype=np.uint8
+            low=0,
+            high=255,
+            shape=self.shape,
+            dtype=np.uint8
         )
 
     def observation(self, obs):
-        obs = cv2.resize(obs, self.shape, interpolation=cv2.INTER_AREA)
-        return obs
+        width = self.shape[1]
+        height = self.shape[0]
+
+        return cv2.resize(
+            obs,
+            (width, height),
+            interpolation=cv2.INTER_AREA
+        )
 
 
 class FrameStack(gym.Wrapper):
@@ -117,11 +129,12 @@ class ScaleRewardWrapper(gym.RewardWrapper):
     
     def reward(self, reward):
         return reward / self.scale
-
 def make_env(env_id="assets/defend_the_center.cfg", skip=4, shape=84, stack=4, clip_rewards=True,
              max_episode_steps=500, window_visible=False, reward_mode="kills",
              kill_reward=1.0, distance_scale=0.03, health_scale=0.05,
-             aim_reward=0.5, aim_penalty=0.1, longevity_reward=0.01):
+             aim_reward=0.5, aim_penalty=0.1, longevity_reward=0.01,
+             distance_discount=1.0, gate_advance_on_enemy=False, gated_discount=0.05,
+             allowed_button_indices=None, extra_combos=None):
     try:
         from Environments.vizdoom_env import VizDoomEnv
     except ImportError:
@@ -134,6 +147,9 @@ def make_env(env_id="assets/defend_the_center.cfg", skip=4, shape=84, stack=4, c
         config_path=env_id, window_visible=window_visible, reward_mode=reward_mode,
         kill_reward=kill_reward, distance_scale=distance_scale, health_scale=health_scale,
         aim_reward=aim_reward, aim_penalty=aim_penalty, longevity_reward=longevity_reward,
+        distance_discount=distance_discount, gate_advance_on_enemy=gate_advance_on_enemy,
+        gated_discount=gated_discount,
+        extra_combos=extra_combos, allowed_button_indices=allowed_button_indices
     )
     env = SkipFrame(env, skip=skip)
     if max_episode_steps:
@@ -142,8 +158,7 @@ def make_env(env_id="assets/defend_the_center.cfg", skip=4, shape=84, stack=4, c
     env = ResizeObservation(env, shape=shape)
     env = FrameStack(env, num_stack=stack)
     env = NormalizeObservation(env)
+    env = DoomRandomStart(env, max_turn_steps=5)
     if clip_rewards:
         env = ClipReward(env)
-    else:
-        env = ScaleRewardWrapper(env)
     return env

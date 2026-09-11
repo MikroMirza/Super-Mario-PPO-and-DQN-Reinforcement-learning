@@ -32,6 +32,10 @@ def build_env(scenario):
         distance_scale=cfg["distance_scale"], health_scale=cfg["health_scale"],
         aim_reward=cfg["aim_reward"], aim_penalty=cfg["aim_penalty"],
         longevity_reward=cfg["longevity_reward"],
+        distance_discount=cfg.get("distance_discount", 1.0),
+        gate_advance_on_enemy=cfg.get("gate_advance_on_enemy", False),
+        gated_discount=cfg.get("gated_discount", 0.05),
+        gate_distance=cfg.get("gate_distance", 250.0),
     )
 
 

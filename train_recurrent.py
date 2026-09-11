@@ -33,7 +33,7 @@ def build_env(scenario):
         reward_mode=cfg["reward_mode"], kill_reward=cfg["kill_reward"],
         distance_scale=cfg["distance_scale"], health_scale=cfg["health_scale"],
         aim_reward=cfg["aim_reward"], aim_penalty=cfg["aim_penalty"],
-        longevity_reward=cfg["longevity_reward"],
+        longevity_reward=cfg["longevity_reward"], gate_distance=cfg.get("gate_distance", 250.0),
     )
     return env, hp
 
