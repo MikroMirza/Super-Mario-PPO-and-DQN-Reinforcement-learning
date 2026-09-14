@@ -1,23 +1,3 @@
-"""
-KORAK 2: Transfer learning izmedju scenarija sa razlicitim brojem akcija.
-
-Problem: standardni agent.load() ne radi izmedju defend_the_center (3 akcije)
-i deadly_corridor (7 akcija) jer se oblik actor/critic izlaznog sloja ne
-poklapa (torch baca RuntimeError o mismatch-u velicina tenzora).
-
-Resenje: CNN + shared_visual slojevi (feature extractor) ne zavise od broja
-akcija - isti su bez obzira na scenario. Ovaj skript ucitava SAMO te slojeve
-iz jednog checkpoint-a u svez model za drugi scenario, i nasumicno
-inicijalizuje actor/critic glave (koje MORAJU biti nove jer je n_actions
-razlicit). Ideja: agent koji je vec naucio da prepoznaje monstrume i
-gadja u defend_the_center ne mora da uci "vid" od nule za deadly_corridor -
-samo mu treba nova "odluka sta da radi sa tim vidom" (actor/critic glave).
-
-Upotreba:
-    python3 transfer_weights.py --source checkpoints/PPOAgent_defend_best.pt \
-                                 --target-scenario corridor \
-                                 --out checkpoints/corridor_init_from_defend.pt
-"""
 import argparse
 
 import torch
@@ -71,9 +51,9 @@ def transfer(source_path, target_scenario, out_path):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=str, required=True,
-                         help="Checkpoint iz kog vucemo CNN/shared_visual tezine (npr. defend checkpoint)")
+                         help="Checkpoint iz kog vucemo CNN/shared_visual tezine")
     parser.add_argument("--target-scenario", type=str, required=True, choices=list(params.SCENARIOS.keys()),
-                         help="Scenario za koji pravimo novi (delimicno prenet) checkpoint")
+                         help="Scenario za koji pravimo novi checkpoint")
     parser.add_argument("--out", type=str, required=True)
     args = parser.parse_args()
 

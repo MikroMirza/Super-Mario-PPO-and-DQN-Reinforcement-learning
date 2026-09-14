@@ -1,4 +1,3 @@
-from doom_gym_wrappers import DoomMaxAndSkipEnv, DoomNormalizeObservation, DoomNormalizeReward, DoomObservation, DoomRandomStart
 import numpy as np
 import gym
 from gym import spaces
@@ -158,7 +157,6 @@ def make_env(env_id="assets/defend_the_center.cfg", skip=4, shape=84, stack=4, c
     env = ResizeObservation(env, shape=shape)
     env = FrameStack(env, num_stack=stack)
     env = NormalizeObservation(env)
-    env = DoomRandomStart(env, max_turn_steps=5)
     if clip_rewards:
         env = ClipReward(env)
     return env

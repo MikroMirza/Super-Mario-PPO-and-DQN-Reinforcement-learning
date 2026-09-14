@@ -65,8 +65,8 @@ class VizDoomEnv(gym.Env):
         self._visited_cells = set()
         self._exploration_cell_size = 64
 
-        # allowed_button_indices: ogranicava koja se POJEDINACNA dugmad
-        # koriste za osnovne (one-hot) akcije - ostala dugmad ostaju
+        # allowed_button_indices: ogranicava koji pojedinacni dugmici se
+        # koriste za osnovne (one-hot) akcije. Ostala dugmad ostaju
         # deklarisana u .cfg (ViZDoom to zahteva/ne smeta), samo se nikad ne
         # pritiskaju sama. Npr. za my_way_home zvanicna specifikacija scenarija
         # koristi samo TURN_LEFT/TURN_RIGHT/MOVE_FORWARD (indeksi 0,1,2), iako
@@ -144,9 +144,7 @@ class VizDoomEnv(gym.Env):
         died = bool(done and health <= 0)
         attacked = bool(self._attack_idx is not None and action_vec[self._attack_idx] == 1)
 
-        # Prigusi ugradjenu WAD nagradu za kretanje SAMO na "zivim" tikovima.
-        # Na tiku smrti (done=True), base_reward vec sadrzi pun death_penalty
-        # (-100) - taj ostaje netaknut, jer zelimo da smrt i dalje bolno kosta.
+
         if not done:
             effective_discount = self.distance_discount
             if self.gate_advance_on_enemy and self._enemy_visible(state):

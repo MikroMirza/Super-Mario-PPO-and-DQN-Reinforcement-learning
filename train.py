@@ -28,7 +28,7 @@ def train(agent: Agent, env, cfg: dict, resume_path: str = None):
     print(f"Max steps   : {cfg['max_steps']:,}")
     print("─" * 50)
 
-    ep_log_path  = os.path.join(cfg["log_dir"], f"training_episodes_{type(agent).__name__}_my_way_home_2.csv")
+    ep_log_path  = os.path.join(cfg["log_dir"], f"training_episodes_{type(agent).__name__}_transferred_corridor.csv")
     ep_file_exists = resume_path and os.path.exists(ep_log_path)
     ep_csv_file  = open(ep_log_path, "a" if ep_file_exists else "w", newline="")
     ep_writer    = csv.writer(ep_csv_file)

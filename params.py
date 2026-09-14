@@ -22,8 +22,6 @@ hyperparameters = {
     'value_loss_coef': 0.5,
 }
 
-# Za defend_the_center (3 akcije) - manji entropy_coef jer isti koeficijent
-# daje jaci relativni bonus kod manjeg akcionog prostora (ln(3) vs ln(7)).
 hyperparameters_defend = {
     'learning_rate':   1e-4,
     'gamma':           0.99,
@@ -63,13 +61,6 @@ dqn_params = {
     'learning_starts': 10_000,
 }
 
-# ---------------------------------------------------------------------
-# Scenario configs. Svaki dict ide u make_env(**cfg minus par kljuceva).
-# reward_mode "kills" je bezopasan default za scenarije bez neprijatelja
-# (KILLCOUNT ostaje 0, aim/health shaping se prirodno iskljucuje ako
-# scenario nema ATTACK dugme).
-# ---------------------------------------------------------------------
-
 env_params = {
     'env_id': "assets/defend_the_center.cfg",
     'frame_skip': 4,
@@ -95,8 +86,8 @@ env_params_corridor = {
     'max_ep_steps': 2_100,
     'window_visible': True,
     'reward_mode': 'distance',
-    'kill_reward': 10.0,      # nekorisceno u ovom modu
-    'distance_scale': 0.02,   # koliko nagrade po jedinici pomeraja napred
+    'kill_reward': 10.0,
+    'distance_scale': 0.02,
 }
 
 env_params_basic = {
@@ -137,13 +128,10 @@ hyperparameters_basic = {
     'n_epochs':        3,
     'batch_size':      256,
     'n_steps':         1024,
-    'entropy_coef':    0.06,   # 0.01 -> 0.06, znacajno vise nego kod defend-a
+    'entropy_coef':    0.06,
     'value_loss_coef': 0.25,
 }
 
-# Labirint - sparse reward (skoro nikakva razlika izmedju koraka dok se ne
-# nadje predmet), pa treba visok entropy_coef da politika ne kolabira pre
-# slucajnog otkrica, slicno kao kod basic-a.
 env_params_myhome = {
     'env_id': "assets/my_way_home.cfg",
     'frame_skip': 4, 'frame_size': 84, 'frame_stack': 4, 'clip_rewards': False,
@@ -186,7 +174,6 @@ training_params = {
 env_params = {
     'env_id': "assets/defend_the_center.cfg",
 
-    # Inspired by Callum
     'frame_skip': 4,
     'frame_size': (84, 84),
     'frame_stack': 4,
@@ -196,7 +183,6 @@ env_params = {
     'max_ep_steps': 2_100,
     'window_visible': True,
 
-    # YOUR reward system
     'reward_mode': 'kills',
     'kill_reward': 1.3,
     'distance_scale': 0.03,
@@ -336,7 +322,7 @@ hyperparameters_defend = {
     'value_loss_coef': 0.25,
 }
 hyperparameters_corridor = {
-    'learning_rate': 2.5e-5,
+    'learning_rate': 1e-4,
     'gamma': 0.99,
     'gae_lambda': 0.95,
 
@@ -346,7 +332,7 @@ hyperparameters_corridor = {
     'batch_size': 256,
     'n_steps': 1024,
 
-    'entropy_coef': 0.01, #0.025
+    'entropy_coef': 0.02, #0.025
     'value_loss_coef': 0.2,
 }
 
@@ -409,17 +395,17 @@ env_params_corridor = {
     'window_visible': False,
 
     'reward_mode': 'distance',
-    'distance_scale': 0.005,
-    'distance_discount': 0.2,
+    'distance_scale': 0.00005,
+    'distance_discount': 0.002,
 
     'gate_advance_on_enemy': True,
     'gated_discount': 0.05,
 
-    'kill_reward': 20.0,
-    'aim_reward': 1.5,
-    'aim_penalty': 1.0,
+    'kill_reward': 25,
+    'aim_reward': 0.015,
+    'aim_penalty': 0.001,
 
-    'health_scale': 0.15,
+    'health_scale': 0.0025,
     'longevity_reward': 0.0,
 
     'allowed_button_indices': [0, 1, 2, 3, 4],
